@@ -173,6 +173,9 @@
     .mobile-tap-layer {
       display: none;
     }
+    .mobile-only {
+      display: none;
+    }
     #constellation {
       width: 100%;
       height: 100%;
@@ -847,23 +850,35 @@
         grid-column: 1 / -1;
       }
       .stage {
-        position: absolute;
-        inset: 0;
-        height: calc(var(--vvh, 100dvh) + 96px);
-        min-height: calc(var(--vvh, 100dvh) + 96px);
+        position: fixed;
+        inset: 0 0 -140px 0;
+        height: auto;
+        min-height: 0;
         overflow: hidden;
         touch-action: none;
+        background:
+          radial-gradient(circle at 18% 20%, rgba(166, 105, 57, 0.22), transparent 30%),
+          radial-gradient(circle at 78% 68%, rgba(100, 83, 58, 0.20), transparent 32%),
+          var(--bg);
       }
       .mobile-tap-layer {
         display: block;
-        position: absolute;
-        z-index: 12;
+        position: fixed;
+        z-index: 30;
         inset: 0;
         touch-action: none;
-        background: rgba(255, 255, 255, 0);
+        cursor: pointer;
+        background: rgba(0, 0, 0, 0.001);
+        -webkit-tap-highlight-color: transparent;
       }
       .app.is-focused .mobile-tap-layer {
         display: none;
+      }
+      .mobile-only {
+        display: block;
+      }
+      .controls .mobile-only {
+        grid-column: 1 / -1;
       }
       .hit-node {
         pointer-events: all;
@@ -996,6 +1011,7 @@
         </select>
         <input id="search" type="search" aria-label="Find ID" placeholder="Find ID, e.g. 5546">
         <button class="ghost-button" id="shuffle" type="button">RANDOM POINT</button>
+        <button class="ghost-button mobile-only" id="openNearest" type="button">OPEN CENTER POINT</button>
         <button class="ghost-button" id="zoomToggle" type="button">ZOOM OUT</button>
       </div>
       <div class="legend" id="legend"></div>
@@ -1038,6 +1054,7 @@
     const selectedCard = document.getElementById("selectedCard");
     const closeFocus = document.getElementById("closeFocus");
     const shuffle = document.getElementById("shuffle");
+    const openNearest = document.getElementById("openNearest");
     const zoomToggle = document.getElementById("zoomToggle");
     const focusLayer = document.getElementById("focusLayer");
     const focusShell = document.getElementById("focusShell");
@@ -1660,6 +1677,17 @@
       event.preventDefault();
     }
 
+    function openNearestToViewportCenter() {
+      const rect = stage.getBoundingClientRect();
+      const topbar = document.querySelector(".topbar");
+      const topbarRect = topbar ? topbar.getBoundingClientRect() : null;
+      const availableTop = topbarRect ? Math.min(rect.bottom, topbarRect.bottom + 18) : rect.top;
+      const centerX = rect.left + rect.width / 2;
+      const centerY = availableTop + Math.max(80, (Math.min(window.innerHeight, rect.bottom) - availableTop) * 0.45);
+      const image = nearestImageAtPoint(centerX, centerY, false);
+      if (image) openFocus(image);
+    }
+
     function handleMobileLayerClick(event) {
       if (!isPhone() || focusOpen) return;
       const image = nearestImageAtPoint(event.clientX, event.clientY, false);
@@ -2041,6 +2069,7 @@
     neighborCarousel.addEventListener("pointerdown", event => event.stopPropagation());
     closeFocus.addEventListener("pointerdown", event => event.stopPropagation());
     shuffle.addEventListener("click", () => openFocus(nodes[Math.floor(Math.random() * nodes.length)].image));
+    openNearest.addEventListener("click", openNearestToViewportCenter);
     zoomToggle.addEventListener("click", () => {
       viewZoomed = !viewZoomed;
       applyViewportMode(true);
@@ -2059,6 +2088,7 @@
     mobileTapLayer.addEventListener("touchmove", handleMobileLayerMove, {passive: false});
     mobileTapLayer.addEventListener("touchend", handleMobileLayerEnd, {passive: false});
     mobileTapLayer.addEventListener("touchcancel", handleMobileLayerEnd, {passive: false});
+    mobileTapLayer.addEventListener("pointerup", handleMobileLayerClick);
     mobileTapLayer.addEventListener("click", handleMobileLayerClick);
     stage.addEventListener("mouseleave", hideHover);
     window.addEventListener("keydown", event => {
