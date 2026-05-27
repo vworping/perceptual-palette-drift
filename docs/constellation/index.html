@@ -883,9 +883,9 @@
       }
       .mobile-point-button {
         position: absolute;
-        width: 26px;
-        height: 26px;
-        margin: -13px 0 0 -13px;
+        width: 18px;
+        height: 18px;
+        margin: -9px 0 0 -9px;
         border-radius: 50%;
         border: 0;
         padding: 0;
@@ -907,7 +907,7 @@
         pointer-events: all;
       }
       #constellation.is-zoomed {
-        transform: translate(var(--zoom-pan-x, 0px), var(--zoom-pan-y, 0px)) scale(4.25);
+        transform: translate(var(--zoom-pan-x, 0px), var(--zoom-pan-y, 0px)) scale(6.25);
       }
       .focus-layer {
         position: fixed;
@@ -1474,8 +1474,8 @@
     function mobilePanLimits() {
       const rect = stage.getBoundingClientRect();
       return {
-        x: Math.max(220, rect.width * 1.55),
-        y: Math.max(300, rect.height * 1.35),
+        x: Math.max(320, rect.width * 2.4),
+        y: Math.max(460, rect.height * 2.1),
       };
     }
 
@@ -1491,7 +1491,7 @@
 
     function currentZoomScale() {
       if (!viewZoomed) return 1;
-      return isPhone() ? 4.25 : 2.35;
+      return isPhone() ? 6.25 : 2.35;
     }
 
     function handleMobilePointOpen(event) {
@@ -1747,24 +1747,14 @@
 
     function handleMobileLayerEnd(event) {
       if (!isPhone() || !mobileDrag.active || mobileDrag.pointerId !== "layer") return;
-      const point = touchPoint(event, true);
-      const wasMoved = mobileDrag.moved;
       mobileDrag.active = false;
       mobileDrag.pointerId = null;
-      if (!wasMoved && point) {
-        const image = nearestImageAtPoint(point.clientX, point.clientY, true);
-        if (image && !focusOpen) openFocus(image);
-      }
       event.preventDefault();
     }
 
     function handleMobileLayerClick(event) {
       if (!isPhone() || focusOpen) return;
-      const image = nearestImageAtPoint(event.clientX, event.clientY, true);
-      if (image) {
-        openFocus(image);
-        event.preventDefault();
-      }
+      event.preventDefault();
     }
     function freezeZoomPan() {
       zoomPan.active = false;
