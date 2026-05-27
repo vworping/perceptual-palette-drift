@@ -682,6 +682,132 @@
         grid-template-columns: 58px 1fr;
       }
     }
+    @media (max-width: 760px) {
+      body {
+        overflow: auto;
+      }
+      .app {
+        min-height: 100dvh;
+        height: auto;
+      }
+      .topbar {
+        margin: 10px;
+        padding: 13px;
+        gap: 10px;
+      }
+      .brand p,
+      .read-note {
+        font-size: 11.5px;
+        line-height: 1.38;
+      }
+      .controls {
+        grid-template-columns: 1fr;
+        gap: 8px;
+      }
+      .stage {
+        height: calc(100dvh - 24px);
+        min-height: 620px;
+      }
+      .focus-layer {
+        position: fixed;
+        inset: 0;
+        display: block;
+        overflow: auto;
+        padding: 48px 0 22px;
+        overscroll-behavior: contain;
+      }
+      .focus-shell,
+      .focus-shell.landscape-focus {
+        width: 100%;
+        height: auto;
+        min-height: calc(100dvh - 70px);
+        display: flex;
+        flex-direction: column;
+        justify-content: flex-start;
+        align-items: center;
+        gap: 16px;
+        padding: 0 0 24px;
+      }
+      .selected-card,
+      .focus-shell.landscape-focus .selected-card {
+        width: min(92vw, 360px);
+        max-width: 360px;
+        left: auto;
+        top: auto;
+      }
+      .selected-card .image-frame {
+        width: 100% !important;
+      }
+      .card-body {
+        padding: 12px 13px 14px;
+      }
+      .card-title strong {
+        font-size: 24px;
+      }
+      .lab-table {
+        gap: 8px;
+        margin-top: 12px;
+      }
+      .selected-card .lab-table {
+        display: none;
+      }
+      .lab-row {
+        grid-template-columns: 54px minmax(0, 1fr);
+        gap: 9px;
+      }
+      .neighbor-carousel,
+      .focus-shell.landscape-focus .neighbor-carousel {
+        position: relative;
+        display: flex;
+        flex: 0 0 auto;
+        width: 100%;
+        height: auto;
+        min-height: 0;
+        gap: 12px;
+        overflow-x: auto;
+        overflow-y: visible;
+        padding: 2px 16px 18px;
+        border-radius: 0;
+        mask-image: none;
+        -webkit-mask-image: none;
+        scroll-snap-type: x mandatory;
+        transform: none;
+      }
+      .neighbor-carousel::before,
+      .neighbor-carousel::after {
+        display: none;
+      }
+      .orbit-card {
+        position: relative;
+        flex: 0 0 auto;
+        opacity: 1;
+        transform: none !important;
+        transition: none;
+        scroll-snap-align: center;
+      }
+      .neighbor-panel {
+        width: min(74vw, 286px) !important;
+      }
+      .neighbor-panel img {
+        transform: scale(1.02);
+      }
+      .neighbor-panel .card-body {
+        gap: 4px;
+        padding: 16px 14px 15px;
+      }
+      .neighbor-panel strong {
+        font-size: 12px;
+        white-space: normal;
+      }
+      .neighbor-panel span {
+        font-size: 10.5px;
+      }
+      .close-focus {
+        right: 12px;
+        top: 12px;
+      }
+    }
+
   </style>
 </head>
 <body>
@@ -796,6 +922,29 @@
     function mediaStyle(d, mode) {
       const vw = window.innerWidth;
       const vh = window.innerHeight;
+      const phone = vw <= 760;
+      if (phone && mode === "main") {
+        const maxW = Math.min(vw * 0.88, 340);
+        const maxH = Math.min(vh * 0.40, 360);
+        let width = maxW;
+        let height = width / d.aspect;
+        if (height > maxH) {
+          height = maxH;
+          width = height * d.aspect;
+        }
+        width = Math.round(Math.max(230, width));
+        height = Math.round(width / d.aspect);
+        if (height > maxH) {
+          height = Math.round(maxH);
+          width = Math.round(height * d.aspect);
+        }
+        return `width:${width}px; --media-h:${height}px`;
+      }
+      if (phone && mode === "neighbor") {
+        const width = Math.round(Math.min(286, Math.max(236, vw * 0.72)));
+        const height = Math.round(Math.min(320, Math.max(260, vh * 0.34)));
+        return `width:${width}px; --media-h:${height}px`;
+      }
       if (mode === "main") {
         const compact = vw < 1220 || vh < 760;
         const frameAspect = d.aspect;
@@ -1384,6 +1533,7 @@
       focusOpen = false;
       focusRenderToken += 1;
       app.classList.remove("is-focused");
+      orbitEls.forEach(el => { el.style.display = ""; });
       stopOrbit();
       renderActiveOverlay(null);
     }
@@ -1394,6 +1544,18 @@
       const visibleEls = orbitEls.filter(el => el.querySelector(".neighbor-panel"));
       if (!visibleEls.length) return;
       const baseCount = Math.min(3, visibleEls.length);
+      if (window.matchMedia("(max-width: 760px)").matches) {
+        orbitEls.forEach((el, i) => {
+          if (!el.querySelector(".neighbor-panel")) return;
+          const visible = i < baseCount;
+          el.style.opacity = visible ? "1" : "0";
+          el.style.pointerEvents = visible ? "" : "none";
+          el.style.transform = "none";
+          el.style.zIndex = String(8 - (i % baseCount));
+          el.style.display = visible ? "" : "none";
+        });
+        return;
+      }
       const gap = 16;
       const speed = Math.max(22, rect.width * 0.028);
       const cardSizes = orbitEls.map(el => ({
