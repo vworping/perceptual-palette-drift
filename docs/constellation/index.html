@@ -849,6 +849,9 @@
         overflow: hidden;
         touch-action: none;
       }
+      .hit-node {
+        pointer-events: all;
+      }
       #constellation.is-zoomed {
         transform: translate(var(--zoom-pan-x, 0px), var(--zoom-pan-y, 0px)) scale(3.05);
       }
@@ -887,7 +890,7 @@
       .selected-card.square img,
       .focus-shell.landscape-focus .selected-card.portrait img,
       .focus-shell.landscape-focus .selected-card.square img {
-        object-fit: contain;
+        object-fit: cover;
         object-position: center center;
       }
       .selected-card .lab-table {
@@ -901,10 +904,11 @@
         width: 100%;
         height: auto;
         min-height: 0;
-        gap: 10px;
+        box-sizing: border-box;
+        gap: 12px;
         overflow-x: auto;
         overflow-y: hidden;
-        padding: 0 14px 10px;
+        padding: 0 24px 10px;
         border-radius: 0;
         mask-image: none;
         -webkit-mask-image: none;
@@ -924,14 +928,20 @@
         transition: none;
         scroll-snap-align: start;
       }
+      .orbit-card:first-child {
+        margin-left: 18px;
+      }
+      .orbit-card:nth-child(3) {
+        margin-right: 18px;
+      }
       .neighbor-panel {
         width: min(57vw, 238px) !important;
       }
       .neighbor-panel.portrait img,
       .neighbor-panel.square img {
-        object-fit: contain;
+        object-fit: cover;
         object-position: center center;
-        transform: none;
+        transform: scale(1.025);
       }
       .neighbor-panel .card-body {
         gap: 4px;
@@ -1035,6 +1045,7 @@
     const zoomPan = {x: 0, y: 0, targetX: 0, targetY: 0, vx: 0, vy: 0, limitX: 0, limitY: 0, active: false};
     const phoneQuery = window.matchMedia("(max-width: 760px)");
     const mobileDrag = {active: false, pointerId: null, startX: 0, startY: 0, lastX: 0, lastY: 0, moved: false, startImage: null};
+    let lastTouchInputAt = 0;
 
     function isPhone() {
       return phoneQuery.matches;
@@ -1190,7 +1201,7 @@
         base: svgUnitsForScreenPx(3.6),
         neighbor: svgUnitsForScreenPx(5.3),
         active: svgUnitsForScreenPx(6.7),
-        hit: svgUnitsForScreenPx(7),
+        hit: svgUnitsForScreenPx(isPhone() ? 16 : 7),
         selection: svgUnitsForScreenPx(50),
         selectionLarge: svgUnitsForScreenPx(54),
       };
@@ -1417,8 +1428,15 @@
       };
     }
 
+    function imageFromEventTarget(event) {
+      const target = event && event.target && event.target.closest ? event.target.closest("[data-image]") : null;
+      return target && target.dataset ? target.dataset.image : null;
+    }
+
     function nearestImageFromEvent(event) {
       if (!pointPositions.size) return null;
+      const directImage = imageFromEventTarget(event);
+      if (directImage) return directImage;
       let closest = null;
       let closestDist = Infinity;
       nodes.forEach(d => {
@@ -1449,6 +1467,7 @@
 
     function handleStagePointerDown(event) {
       if (focusOpen) return;
+      if (isPhone() && Date.now() - lastTouchInputAt < 650) return;
       if (!isPhone()) {
         const image = nearestImageFromEvent(event);
         if (image) openFocus(image);
@@ -1470,6 +1489,7 @@
     }
 
     function handleStagePointerDrag(event) {
+      if (isPhone() && Date.now() - lastTouchInputAt < 650) return;
       if (!mobileDrag.active || event.pointerId !== mobileDrag.pointerId || focusOpen) return;
       const dx = event.clientX - mobileDrag.lastX;
       const dy = event.clientY - mobileDrag.lastY;
@@ -1482,6 +1502,7 @@
     }
 
     function handleStagePointerUp(event) {
+      if (isPhone() && Date.now() - lastTouchInputAt < 650) return;
       if (!mobileDrag.active || event.pointerId !== mobileDrag.pointerId) return;
       const wasMoved = mobileDrag.moved;
       const image = wasMoved ? null : (nearestImageFromEvent(event) || mobileDrag.startImage);
@@ -1492,6 +1513,67 @@
       }
       if (image && !focusOpen) openFocus(image);
       event.preventDefault();
+    }
+
+    function touchPoint(event, changed=false) {
+      const source = changed ? event.changedTouches : event.touches;
+      const touch = source && source[0];
+      return touch ? {clientX: touch.clientX, clientY: touch.clientY} : null;
+    }
+
+    function handleStageTouchStart(event) {
+      if (!isPhone() || focusOpen || event.touches.length !== 1) return;
+      const point = touchPoint(event);
+      if (!point) return;
+      lastTouchInputAt = Date.now();
+      viewZoomed = true;
+      applyViewportMode(false);
+      hideHover(false);
+      mobileDrag.active = true;
+      mobileDrag.pointerId = "touch";
+      mobileDrag.startX = point.clientX;
+      mobileDrag.startY = point.clientY;
+      mobileDrag.lastX = point.clientX;
+      mobileDrag.lastY = point.clientY;
+      mobileDrag.moved = false;
+      mobileDrag.startImage = nearestImageFromEvent(point);
+      event.preventDefault();
+    }
+
+    function handleStageTouchMove(event) {
+      if (!isPhone() || !mobileDrag.active || mobileDrag.pointerId !== "touch" || focusOpen || event.touches.length !== 1) return;
+      const point = touchPoint(event);
+      if (!point) return;
+      lastTouchInputAt = Date.now();
+      const dx = point.clientX - mobileDrag.lastX;
+      const dy = point.clientY - mobileDrag.lastY;
+      const total = Math.hypot(point.clientX - mobileDrag.startX, point.clientY - mobileDrag.startY);
+      if (total > 14) mobileDrag.moved = true;
+      if (mobileDrag.moved) setMobileZoomPan(zoomPan.x + dx, zoomPan.y + dy);
+      mobileDrag.lastX = point.clientX;
+      mobileDrag.lastY = point.clientY;
+      event.preventDefault();
+    }
+
+    function handleStageTouchEnd(event) {
+      if (!isPhone() || !mobileDrag.active || mobileDrag.pointerId !== "touch") return;
+      const point = touchPoint(event, true);
+      lastTouchInputAt = Date.now();
+      const wasMoved = mobileDrag.moved;
+      const image = !wasMoved && point ? (nearestImageFromEvent(point) || mobileDrag.startImage) : null;
+      mobileDrag.active = false;
+      mobileDrag.pointerId = null;
+      if (image && !focusOpen) openFocus(image);
+      event.preventDefault();
+    }
+
+    function handleStageClick(event) {
+      if (focusOpen || !isPhone()) return;
+      const image = nearestImageFromEvent(event);
+      if (image) {
+        openFocus(image);
+        event.preventDefault();
+      }
     }
     function freezeZoomPan() {
       zoomPan.active = false;
@@ -1875,6 +1957,11 @@
     stage.addEventListener("pointermove", handleStagePointerDrag);
     stage.addEventListener("pointerup", handleStagePointerUp);
     stage.addEventListener("pointercancel", handleStagePointerUp);
+    stage.addEventListener("touchstart", handleStageTouchStart, {passive: false});
+    stage.addEventListener("touchmove", handleStageTouchMove, {passive: false});
+    stage.addEventListener("touchend", handleStageTouchEnd, {passive: false});
+    stage.addEventListener("touchcancel", handleStageTouchEnd, {passive: false});
+    stage.addEventListener("click", handleStageClick);
     stage.addEventListener("mouseleave", hideHover);
     window.addEventListener("keydown", event => {
       if (event.key === "Escape" && focusOpen) closeFocusView();
