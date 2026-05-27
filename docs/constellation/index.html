@@ -907,7 +907,7 @@
         pointer-events: all;
       }
       #constellation.is-zoomed {
-        transform: translate(var(--zoom-pan-x, 0px), var(--zoom-pan-y, 0px)) scale(3.72);
+        transform: translate(var(--zoom-pan-x, 0px), var(--zoom-pan-y, 0px)) scale(4.25);
       }
       .focus-layer {
         position: fixed;
@@ -1491,7 +1491,7 @@
 
     function currentZoomScale() {
       if (!viewZoomed) return 1;
-      return isPhone() ? 3.72 : 2.35;
+      return isPhone() ? 4.25 : 2.35;
     }
 
     function handleMobilePointOpen(event) {
@@ -1535,11 +1535,11 @@
     function screenPointFor(image) {
       const p = pointPositions.get(image);
       if (!p) return null;
-      const rect = svg.getBoundingClientRect();
       const viewBox = svg.viewBox.baseVal;
-      const baseX = rect.left + ((p.x - viewBox.x) / viewBox.width) * rect.width;
-      const baseY = rect.top + ((p.y - viewBox.y) / viewBox.height) * rect.height;
       if (isPhone()) {
+        const rect = stage.getBoundingClientRect();
+        const baseX = rect.left + ((p.x - viewBox.x) / viewBox.width) * rect.width;
+        const baseY = rect.top + ((p.y - viewBox.y) / viewBox.height) * rect.height;
         const scale = currentZoomScale();
         const originX = rect.left + rect.width / 2;
         const originY = rect.top + rect.height / 2;
@@ -1548,6 +1548,9 @@
           y: originY + (baseY - originY) * scale + zoomPan.y,
         };
       }
+      const rect = svg.getBoundingClientRect();
+      const baseX = rect.left + ((p.x - viewBox.x) / viewBox.width) * rect.width;
+      const baseY = rect.top + ((p.y - viewBox.y) / viewBox.height) * rect.height;
       const matrix = svg.getScreenCTM && svg.getScreenCTM();
       if (matrix) {
         const pt = svg.createSVGPoint();
