@@ -883,9 +883,9 @@
       }
       .mobile-point-button {
         position: absolute;
-        width: 38px;
-        height: 38px;
-        margin: -19px 0 0 -19px;
+        width: 26px;
+        height: 26px;
+        margin: -13px 0 0 -13px;
         border-radius: 50%;
         border: 0;
         padding: 0;
@@ -907,7 +907,7 @@
         pointer-events: all;
       }
       #constellation.is-zoomed {
-        transform: translate(var(--zoom-pan-x, 0px), var(--zoom-pan-y, 0px)) scale(3.05);
+        transform: translate(var(--zoom-pan-x, 0px), var(--zoom-pan-y, 0px)) scale(3.72);
       }
       .focus-layer {
         position: fixed;
@@ -1034,7 +1034,6 @@
         </select>
         <input id="search" type="search" aria-label="Find ID" placeholder="Find ID, e.g. 5546">
         <button class="ghost-button" id="shuffle" type="button">RANDOM POINT</button>
-        <button class="ghost-button mobile-only" id="openNearest" type="button">OPEN CENTER POINT</button>
         <button class="ghost-button" id="zoomToggle" type="button">ZOOM OUT</button>
       </div>
       <div class="legend" id="legend"></div>
@@ -1079,7 +1078,6 @@
     const selectedCard = document.getElementById("selectedCard");
     const closeFocus = document.getElementById("closeFocus");
     const shuffle = document.getElementById("shuffle");
-    const openNearest = document.getElementById("openNearest");
     const zoomToggle = document.getElementById("zoomToggle");
     const focusLayer = document.getElementById("focusLayer");
     const focusShell = document.getElementById("focusShell");
@@ -1476,8 +1474,8 @@
     function mobilePanLimits() {
       const rect = stage.getBoundingClientRect();
       return {
-        x: Math.max(140, rect.width * 1.08),
-        y: Math.max(220, rect.height * 0.92),
+        x: Math.max(220, rect.width * 1.55),
+        y: Math.max(300, rect.height * 1.35),
       };
     }
 
@@ -1493,7 +1491,7 @@
 
     function currentZoomScale() {
       if (!viewZoomed) return 1;
-      return isPhone() ? 3.05 : 2.35;
+      return isPhone() ? 3.72 : 2.35;
     }
 
     function handleMobilePointOpen(event) {
@@ -1581,7 +1579,7 @@
           closestDist = dist;
         }
       });
-      const threshold = isPhone() ? (viewZoomed ? 58 : 42) : (viewZoomed ? 19 : 13);
+      const threshold = isPhone() ? (viewZoomed ? 34 : 26) : (viewZoomed ? 19 : 13);
       return !requireThreshold || closestDist <= threshold ? closest : null;
     }
 
@@ -1751,26 +1749,15 @@
       mobileDrag.active = false;
       mobileDrag.pointerId = null;
       if (!wasMoved && point) {
-        const image = nearestImageAtPoint(point.clientX, point.clientY, false);
+        const image = nearestImageAtPoint(point.clientX, point.clientY, true);
         if (image && !focusOpen) openFocus(image);
       }
       event.preventDefault();
     }
 
-    function openNearestToViewportCenter() {
-      const rect = stage.getBoundingClientRect();
-      const topbar = document.querySelector(".topbar");
-      const topbarRect = topbar ? topbar.getBoundingClientRect() : null;
-      const availableTop = topbarRect ? Math.min(rect.bottom, topbarRect.bottom + 18) : rect.top;
-      const centerX = rect.left + rect.width / 2;
-      const centerY = availableTop + Math.max(80, (Math.min(window.innerHeight, rect.bottom) - availableTop) * 0.45);
-      const image = nearestImageAtPoint(centerX, centerY, false);
-      if (image) openFocus(image);
-    }
-
     function handleMobileLayerClick(event) {
       if (!isPhone() || focusOpen) return;
-      const image = nearestImageAtPoint(event.clientX, event.clientY, false);
+      const image = nearestImageAtPoint(event.clientX, event.clientY, true);
       if (image) {
         openFocus(image);
         event.preventDefault();
@@ -2150,7 +2137,6 @@
     neighborCarousel.addEventListener("pointerdown", event => event.stopPropagation());
     closeFocus.addEventListener("pointerdown", event => event.stopPropagation());
     shuffle.addEventListener("click", () => openFocus(nodes[Math.floor(Math.random() * nodes.length)].image));
-    openNearest.addEventListener("click", openNearestToViewportCenter);
     zoomToggle.addEventListener("click", () => {
       viewZoomed = !viewZoomed;
       applyViewportMode(true);
