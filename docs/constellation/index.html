@@ -875,13 +875,20 @@
       }
       .selected-card,
       .focus-shell.landscape-focus .selected-card {
-        width: min(92vw, 360px);
-        max-width: 360px;
+        width: min(84vw, 318px);
+        max-width: 318px;
         left: auto;
         top: auto;
       }
       .selected-card .image-frame {
         width: 100% !important;
+      }
+      .selected-card.portrait img,
+      .selected-card.square img,
+      .focus-shell.landscape-focus .selected-card.portrait img,
+      .focus-shell.landscape-focus .selected-card.square img {
+        object-fit: contain;
+        object-position: center center;
       }
       .selected-card .lab-table {
         display: none;
@@ -894,10 +901,10 @@
         width: 100%;
         height: auto;
         min-height: 0;
-        gap: 12px;
+        gap: 10px;
         overflow-x: auto;
         overflow-y: hidden;
-        padding: 0 16px 10px;
+        padding: 0 14px 10px;
         border-radius: 0;
         mask-image: none;
         -webkit-mask-image: none;
@@ -918,19 +925,17 @@
         scroll-snap-align: start;
       }
       .neighbor-panel {
-        width: min(74vw, 286px) !important;
+        width: min(57vw, 238px) !important;
       }
-      .neighbor-panel img {
-        transform: scale(1.015);
-      }
-      .neighbor-panel.portrait img {
+      .neighbor-panel.portrait img,
+      .neighbor-panel.square img {
         object-fit: contain;
         object-position: center center;
         transform: none;
       }
       .neighbor-panel .card-body {
         gap: 4px;
-        padding: 14px 14px 14px;
+        padding: 11px 12px 12px;
       }
       .neighbor-panel strong {
         font-size: 12px;
@@ -1067,15 +1072,15 @@
       const vh = window.innerHeight;
       const phone = vw <= 760;
       if (phone && mode === "main") {
-        const maxW = Math.min(vw * 0.88, 340);
-        const maxH = Math.min(vh * 0.40, 360);
+        const maxW = Math.min(vw * 0.82, 318);
+        const maxH = Math.min(vh * 0.32, 282);
         let width = maxW;
         let height = width / d.aspect;
         if (height > maxH) {
           height = maxH;
           width = height * d.aspect;
         }
-        width = Math.round(Math.max(230, width));
+        width = Math.round(Math.max(210, width));
         height = Math.round(width / d.aspect);
         if (height > maxH) {
           height = Math.round(maxH);
@@ -1084,8 +1089,8 @@
         return `width:${width}px; --media-h:${height}px`;
       }
       if (phone && mode === "neighbor") {
-        const width = Math.round(Math.min(286, Math.max(236, vw * 0.72)));
-        const height = Math.round(Math.min(320, Math.max(260, vh * 0.34)));
+        const width = Math.round(Math.min(238, Math.max(196, vw * 0.57)));
+        const height = Math.round(Math.min(248, Math.max(176, vh * 0.25)));
         return `width:${width}px; --media-h:${height}px`;
       }
       if (mode === "main") {
@@ -1427,7 +1432,7 @@
           closestDist = dist;
         }
       });
-      const threshold = isPhone() ? (viewZoomed ? 34 : 26) : (viewZoomed ? 19 : 13);
+      const threshold = isPhone() ? (viewZoomed ? 58 : 42) : (viewZoomed ? 19 : 13);
       return closestDist <= threshold ? closest : null;
     }
 
@@ -1469,7 +1474,7 @@
       const dx = event.clientX - mobileDrag.lastX;
       const dy = event.clientY - mobileDrag.lastY;
       const total = Math.hypot(event.clientX - mobileDrag.startX, event.clientY - mobileDrag.startY);
-      if (total > 7) mobileDrag.moved = true;
+      if (total > 14) mobileDrag.moved = true;
       if (mobileDrag.moved) setMobileZoomPan(zoomPan.x + dx, zoomPan.y + dy);
       mobileDrag.lastX = event.clientX;
       mobileDrag.lastY = event.clientY;
