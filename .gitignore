@@ -6,7 +6,12 @@ __pycache__/
 *.pyc
 
 # Data outputs
+data/raw/
 data/processed/
+
+# Hold local for now
+figures/
+paper/
 
 # Jupyter
 .ipynb_checkpoints/
