@@ -808,6 +808,143 @@
       }
     }
 
+    @media (max-width: 760px) {
+      html,
+      body {
+        width: 100%;
+        height: 100%;
+        overflow: hidden;
+      }
+      .app {
+        height: 100dvh;
+        min-height: 100dvh;
+        overflow: hidden;
+      }
+      .topbar {
+        position: absolute;
+        left: 12px;
+        right: 12px;
+        top: calc(env(safe-area-inset-top) + 10px);
+        width: auto;
+        max-height: min(48dvh, 430px);
+        overflow: auto;
+        margin: 0;
+        padding: 13px;
+        gap: 10px;
+        -webkit-overflow-scrolling: touch;
+      }
+      .controls {
+        grid-template-columns: 1fr 1fr;
+        gap: 8px;
+      }
+      .controls select,
+      .controls input[type="search"] {
+        grid-column: 1 / -1;
+      }
+      .stage {
+        position: absolute;
+        inset: 0;
+        height: 100dvh;
+        min-height: 100dvh;
+        overflow: hidden;
+        touch-action: none;
+      }
+      #constellation.is-zoomed {
+        transform: translate(var(--zoom-pan-x, 0px), var(--zoom-pan-y, 0px)) scale(3.05);
+      }
+      .focus-layer {
+        position: fixed;
+        inset: 0;
+        display: block;
+        overflow: auto;
+        padding: calc(env(safe-area-inset-top) + 46px) 0 14px;
+        overscroll-behavior: contain;
+        -webkit-overflow-scrolling: touch;
+      }
+      .focus-shell,
+      .focus-shell.landscape-focus {
+        width: 100%;
+        height: auto;
+        min-height: auto;
+        display: flex;
+        flex-direction: column;
+        justify-content: flex-start;
+        align-items: center;
+        gap: 12px;
+        padding: 0 0 10px;
+      }
+      .selected-card,
+      .focus-shell.landscape-focus .selected-card {
+        width: min(92vw, 360px);
+        max-width: 360px;
+        left: auto;
+        top: auto;
+      }
+      .selected-card .image-frame {
+        width: 100% !important;
+      }
+      .selected-card .lab-table {
+        display: none;
+      }
+      .neighbor-carousel,
+      .focus-shell.landscape-focus .neighbor-carousel {
+        position: relative;
+        display: flex;
+        flex: 0 0 auto;
+        width: 100%;
+        height: auto;
+        min-height: 0;
+        gap: 12px;
+        overflow-x: auto;
+        overflow-y: hidden;
+        padding: 0 16px 10px;
+        border-radius: 0;
+        mask-image: none;
+        -webkit-mask-image: none;
+        scroll-snap-type: x mandatory;
+        transform: none;
+        -webkit-overflow-scrolling: touch;
+      }
+      .neighbor-carousel::before,
+      .neighbor-carousel::after {
+        display: none;
+      }
+      .orbit-card {
+        position: relative;
+        flex: 0 0 auto;
+        opacity: 1;
+        transform: none !important;
+        transition: none;
+        scroll-snap-align: start;
+      }
+      .neighbor-panel {
+        width: min(74vw, 286px) !important;
+      }
+      .neighbor-panel img {
+        transform: scale(1.015);
+      }
+      .neighbor-panel.portrait img {
+        object-fit: contain;
+        object-position: center center;
+        transform: none;
+      }
+      .neighbor-panel .card-body {
+        gap: 4px;
+        padding: 14px 14px 14px;
+      }
+      .neighbor-panel strong {
+        font-size: 12px;
+        white-space: normal;
+      }
+      .neighbor-panel span {
+        font-size: 10.5px;
+      }
+      .close-focus {
+        right: 12px;
+        top: calc(env(safe-area-inset-top) + 12px);
+      }
+    }
+
   </style>
 </head>
 <body>
@@ -891,6 +1028,12 @@
     let focusRenderToken = 0;
     let zoomPanAnimation = null;
     const zoomPan = {x: 0, y: 0, targetX: 0, targetY: 0, vx: 0, vy: 0, limitX: 0, limitY: 0, active: false};
+    const phoneQuery = window.matchMedia("(max-width: 760px)");
+    const mobileDrag = {active: false, pointerId: null, startX: 0, startY: 0, lastX: 0, lastY: 0, moved: false, startImage: null};
+
+    function isPhone() {
+      return phoneQuery.matches;
+    }
 
     function metricLabel(metric) {
       return DATA.metrics[metric] || metric;
@@ -1221,7 +1364,7 @@
     }
 
     function updateZoomPan(event) {
-      if (focusOpen || !viewZoomed) return;
+      if (focusOpen || !viewZoomed || isPhone()) return;
       const rect = stage.getBoundingClientRect();
       const nx = Math.min(1, Math.max(0, (event.clientX - rect.left) / rect.width));
       const ny = Math.min(1, Math.max(0, (event.clientY - rect.top) / rect.height));
@@ -1233,6 +1376,23 @@
       animateZoomPan();
     }
 
+    function mobilePanLimits() {
+      const rect = stage.getBoundingClientRect();
+      return {
+        x: Math.max(140, rect.width * 1.08),
+        y: Math.max(220, rect.height * 0.92),
+      };
+    }
+
+    function setMobileZoomPan(x, y) {
+      const limit = mobilePanLimits();
+      zoomPan.active = false;
+      zoomPan.targetX = Math.max(-limit.x, Math.min(limit.x, x));
+      zoomPan.targetY = Math.max(-limit.y, Math.min(limit.y, y));
+      zoomPan.x = zoomPan.targetX;
+      zoomPan.y = zoomPan.targetY;
+      setZoomPan(zoomPan.x, zoomPan.y);
+    }
     function screenPointFor(image) {
       const p = pointPositions.get(image);
       if (!p) return null;
@@ -1267,12 +1427,12 @@
           closestDist = dist;
         }
       });
-      const threshold = viewZoomed ? 19 : 13;
+      const threshold = isPhone() ? (viewZoomed ? 34 : 26) : (viewZoomed ? 19 : 13);
       return closestDist <= threshold ? closest : null;
     }
 
     function handleStagePointer(event) {
-      if (focusOpen) return;
+      if (focusOpen || isPhone()) return;
       const image = nearestImageFromEvent(event);
       updateZoomPan(event);
       if (image) {
@@ -1282,6 +1442,52 @@
       }
     }
 
+    function handleStagePointerDown(event) {
+      if (focusOpen) return;
+      if (!isPhone()) {
+        const image = nearestImageFromEvent(event);
+        if (image) openFocus(image);
+        return;
+      }
+      viewZoomed = true;
+      applyViewportMode(false);
+      hideHover(false);
+      mobileDrag.active = true;
+      mobileDrag.pointerId = event.pointerId;
+      mobileDrag.startX = event.clientX;
+      mobileDrag.startY = event.clientY;
+      mobileDrag.lastX = event.clientX;
+      mobileDrag.lastY = event.clientY;
+      mobileDrag.moved = false;
+      mobileDrag.startImage = nearestImageFromEvent(event);
+      if (stage.setPointerCapture) stage.setPointerCapture(event.pointerId);
+      event.preventDefault();
+    }
+
+    function handleStagePointerDrag(event) {
+      if (!mobileDrag.active || event.pointerId !== mobileDrag.pointerId || focusOpen) return;
+      const dx = event.clientX - mobileDrag.lastX;
+      const dy = event.clientY - mobileDrag.lastY;
+      const total = Math.hypot(event.clientX - mobileDrag.startX, event.clientY - mobileDrag.startY);
+      if (total > 7) mobileDrag.moved = true;
+      if (mobileDrag.moved) setMobileZoomPan(zoomPan.x + dx, zoomPan.y + dy);
+      mobileDrag.lastX = event.clientX;
+      mobileDrag.lastY = event.clientY;
+      event.preventDefault();
+    }
+
+    function handleStagePointerUp(event) {
+      if (!mobileDrag.active || event.pointerId !== mobileDrag.pointerId) return;
+      const wasMoved = mobileDrag.moved;
+      const image = wasMoved ? null : (nearestImageFromEvent(event) || mobileDrag.startImage);
+      mobileDrag.active = false;
+      mobileDrag.pointerId = null;
+      if (stage.releasePointerCapture) {
+        try { stage.releasePointerCapture(event.pointerId); } catch (error) {}
+      }
+      if (image && !focusOpen) openFocus(image);
+      event.preventDefault();
+    }
     function freezeZoomPan() {
       zoomPan.active = false;
       zoomPan.vx = 0;
@@ -1545,6 +1751,7 @@
       if (!visibleEls.length) return;
       const baseCount = Math.min(3, visibleEls.length);
       if (window.matchMedia("(max-width: 760px)").matches) {
+        neighborCarousel.scrollLeft = 0;
         orbitEls.forEach((el, i) => {
           if (!el.querySelector(".neighbor-panel")) return;
           const visible = i < baseCount;
@@ -1659,11 +1866,10 @@
       applyViewportMode(true);
     });
     stage.addEventListener("pointermove", handleStagePointer);
-    stage.addEventListener("pointerdown", event => {
-      if (focusOpen) return;
-      const image = nearestImageFromEvent(event);
-      if (image) openFocus(image);
-    });
+    stage.addEventListener("pointerdown", handleStagePointerDown);
+    stage.addEventListener("pointermove", handleStagePointerDrag);
+    stage.addEventListener("pointerup", handleStagePointerUp);
+    stage.addEventListener("pointercancel", handleStagePointerUp);
     stage.addEventListener("mouseleave", hideHover);
     window.addEventListener("keydown", event => {
       if (event.key === "Escape" && focusOpen) closeFocusView();
