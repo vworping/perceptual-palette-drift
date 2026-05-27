@@ -170,6 +170,9 @@
       inset: 0;
       overflow: hidden;
     }
+    .mobile-tap-layer {
+      display: none;
+    }
     #constellation {
       width: 100%;
       height: 100%;
@@ -818,8 +821,8 @@
         overflow: hidden;
       }
       .app {
-        height: 100dvh;
-        min-height: 100dvh;
+        height: var(--vvh, 100dvh);
+        min-height: var(--vvh, 100dvh);
         overflow: hidden;
       }
       .topbar {
@@ -846,10 +849,21 @@
       .stage {
         position: absolute;
         inset: 0;
-        height: 100dvh;
-        min-height: 100dvh;
+        height: calc(var(--vvh, 100dvh) + 96px);
+        min-height: calc(var(--vvh, 100dvh) + 96px);
         overflow: hidden;
         touch-action: none;
+      }
+      .mobile-tap-layer {
+        display: block;
+        position: absolute;
+        z-index: 12;
+        inset: 0;
+        touch-action: none;
+        background: rgba(255, 255, 255, 0);
+      }
+      .app.is-focused .mobile-tap-layer {
+        display: none;
       }
       .hit-node {
         pointer-events: all;
@@ -989,6 +1003,7 @@
 
     <main class="stage">
       <svg id="constellation" role="img" aria-label="Blurred palette similarity constellation"></svg>
+      <div class="mobile-tap-layer" id="mobileTapLayer" aria-hidden="true"></div>
       <div class="hover-card" id="hoverCard"></div>
       <div class="focus-layer" id="focusLayer" aria-live="polite">
         <div class="focus-shell" id="focusShell">
@@ -1016,6 +1031,7 @@
     const app = document.getElementById("app");
     const stage = document.querySelector(".stage");
     const svg = document.getElementById("constellation");
+    const mobileTapLayer = document.getElementById("mobileTapLayer");
     const metricEl = document.getElementById("metric");
     const searchEl = document.getElementById("search");
     const hoverCard = document.getElementById("hoverCard");
@@ -1048,6 +1064,11 @@
     const phoneQuery = window.matchMedia("(max-width: 760px)");
     const mobileDrag = {active: false, pointerId: null, startX: 0, startY: 0, lastX: 0, lastY: 0, moved: false, startImage: null};
     let lastTouchInputAt = 0;
+
+    function updateVisualViewportHeight() {
+      const height = window.visualViewport ? window.visualViewport.height : window.innerHeight;
+      document.documentElement.style.setProperty("--vvh", `${Math.ceil(height)}px`);
+    }
 
     function isPhone() {
       return phoneQuery.matches;
@@ -1448,17 +1469,15 @@
       return target && target.dataset ? target.dataset.image : null;
     }
 
-    function nearestImageFromEvent(event) {
+    function nearestImageAtPoint(clientX, clientY, requireThreshold=true) {
       if (!pointPositions.size) return null;
-      const directImage = imageFromEventTarget(event);
-      if (directImage) return directImage;
       let closest = null;
       let closestDist = Infinity;
       nodes.forEach(d => {
         const screen = screenPointFor(d.image);
         if (!screen) return;
-        const dx = screen.x - event.clientX;
-        const dy = screen.y - event.clientY;
+        const dx = screen.x - clientX;
+        const dy = screen.y - clientY;
         const dist = Math.hypot(dx, dy);
         if (dist < closestDist) {
           closest = d.image;
@@ -1466,7 +1485,14 @@
         }
       });
       const threshold = isPhone() ? (viewZoomed ? 58 : 42) : (viewZoomed ? 19 : 13);
-      return closestDist <= threshold ? closest : null;
+      return !requireThreshold || closestDist <= threshold ? closest : null;
+    }
+
+    function nearestImageFromEvent(event, requireThreshold=true) {
+      if (!pointPositions.size) return null;
+      const directImage = imageFromEventTarget(event);
+      if (directImage) return directImage;
+      return nearestImageAtPoint(event.clientX, event.clientY, requireThreshold);
     }
 
     function handleStagePointer(event) {
@@ -1585,6 +1611,58 @@
     function handleStageClick(event) {
       if (focusOpen || !isPhone()) return;
       const image = nearestImageFromEvent(event);
+      if (image) {
+        openFocus(image);
+        event.preventDefault();
+      }
+    }
+
+    function handleMobileLayerStart(event) {
+      if (!isPhone() || focusOpen || event.touches.length !== 1) return;
+      const point = touchPoint(event);
+      if (!point) return;
+      viewZoomed = true;
+      applyViewportMode(false);
+      mobileDrag.active = true;
+      mobileDrag.pointerId = "layer";
+      mobileDrag.startX = point.clientX;
+      mobileDrag.startY = point.clientY;
+      mobileDrag.lastX = point.clientX;
+      mobileDrag.lastY = point.clientY;
+      mobileDrag.moved = false;
+      event.preventDefault();
+    }
+
+    function handleMobileLayerMove(event) {
+      if (!isPhone() || !mobileDrag.active || mobileDrag.pointerId !== "layer" || focusOpen || event.touches.length !== 1) return;
+      const point = touchPoint(event);
+      if (!point) return;
+      const dx = point.clientX - mobileDrag.lastX;
+      const dy = point.clientY - mobileDrag.lastY;
+      const total = Math.hypot(point.clientX - mobileDrag.startX, point.clientY - mobileDrag.startY);
+      if (total > 14) mobileDrag.moved = true;
+      if (mobileDrag.moved) setMobileZoomPan(zoomPan.x + dx, zoomPan.y + dy);
+      mobileDrag.lastX = point.clientX;
+      mobileDrag.lastY = point.clientY;
+      event.preventDefault();
+    }
+
+    function handleMobileLayerEnd(event) {
+      if (!isPhone() || !mobileDrag.active || mobileDrag.pointerId !== "layer") return;
+      const point = touchPoint(event, true);
+      const wasMoved = mobileDrag.moved;
+      mobileDrag.active = false;
+      mobileDrag.pointerId = null;
+      if (!wasMoved && point) {
+        const image = nearestImageAtPoint(point.clientX, point.clientY, false);
+        if (image && !focusOpen) openFocus(image);
+      }
+      event.preventDefault();
+    }
+
+    function handleMobileLayerClick(event) {
+      if (!isPhone() || focusOpen) return;
+      const image = nearestImageAtPoint(event.clientX, event.clientY, false);
       if (image) {
         openFocus(image);
         event.preventDefault();
@@ -1977,18 +2055,29 @@
     stage.addEventListener("touchend", handleStageTouchEnd, {passive: false});
     stage.addEventListener("touchcancel", handleStageTouchEnd, {passive: false});
     stage.addEventListener("click", handleStageClick);
+    mobileTapLayer.addEventListener("touchstart", handleMobileLayerStart, {passive: false});
+    mobileTapLayer.addEventListener("touchmove", handleMobileLayerMove, {passive: false});
+    mobileTapLayer.addEventListener("touchend", handleMobileLayerEnd, {passive: false});
+    mobileTapLayer.addEventListener("touchcancel", handleMobileLayerEnd, {passive: false});
+    mobileTapLayer.addEventListener("click", handleMobileLayerClick);
     stage.addEventListener("mouseleave", hideHover);
     window.addEventListener("keydown", event => {
       if (event.key === "Escape" && focusOpen) closeFocusView();
     });
     window.addEventListener("resize", () => {
+      updateVisualViewportHeight();
       draw();
       if (focusOpen) {
         renderFocusContent();
         startOrbit();
       }
     });
+    if (window.visualViewport) {
+      window.visualViewport.addEventListener("resize", updateVisualViewportHeight);
+      window.visualViewport.addEventListener("scroll", updateVisualViewportHeight);
+    }
 
+    updateVisualViewportHeight();
     renderLegend();
     draw();
     applyViewportMode(true);
