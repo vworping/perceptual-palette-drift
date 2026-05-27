@@ -215,15 +215,17 @@
       pointer-events: none;
     }
     .node {
-      pointer-events: none;
+      pointer-events: all;
       opacity: 0.46;
+      cursor: pointer;
       transition: opacity 180ms ease, r 180ms ease, filter 180ms ease;
     }
     .hit-node {
       cursor: pointer;
-      fill: transparent;
+      fill: #fff;
+      opacity: 0.001;
       stroke: transparent;
-      pointer-events: none;
+      pointer-events: all;
     }
     .node:hover, .node.active, .node.neighbor {
       opacity: 1;
@@ -1201,10 +1203,19 @@
         base: svgUnitsForScreenPx(3.6),
         neighbor: svgUnitsForScreenPx(5.3),
         active: svgUnitsForScreenPx(6.7),
-        hit: svgUnitsForScreenPx(isPhone() ? 16 : 7),
+        hit: svgUnitsForScreenPx(isPhone() ? 22 : 7),
         selection: svgUnitsForScreenPx(50),
         selectionLarge: svgUnitsForScreenPx(54),
       };
+    }
+
+    function openNodeEvent(event) {
+      const image = imageFromEventTarget(event);
+      if (!image || focusOpen) return;
+      if (isPhone() && mobileDrag.moved) return;
+      openFocus(image);
+      event.preventDefault();
+      event.stopPropagation();
     }
 
     function draw() {
@@ -1312,6 +1323,10 @@
           fill: yearColors.get(d.year),
           "data-image": d.image,
         });
+        hit.addEventListener("click", openNodeEvent);
+        hit.addEventListener("touchend", openNodeEvent, {passive: false});
+        circle.addEventListener("click", openNodeEvent);
+        circle.addEventListener("touchend", openNodeEvent, {passive: false});
         points.append(hit, circle);
         nodeElements.set(d.image, circle);
 
